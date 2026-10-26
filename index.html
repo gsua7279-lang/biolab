@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>바이오랩 노트 – 생명공학 학습 & 실험 도구</title>
+<meta name="description" content="센트럴 도그마 시각화, 서열 분석, 희석·몰농도 계산기를 브라우저에서 바로 쓰는 생명공학 사이트">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#eef3f6; --card:#fff; --ink:#14263a; --muted:#5a6b7b; --line:#cfd9e1; --accent:#0e6e8c;
+  --A:#1f9d55; --T:#d64545; --G:#d99a00; --C:#2f6fdb;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0f1a24; --card:#16242f; --ink:#e6eef4; --muted:#93a6b6; --line:#2a3d4c; --accent:#4cc2e4;
+    --A:#4fd18b; --T:#ff7b7b; --G:#f2bd3c; --C:#6fa0ff; color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font:16px/1.7 "Noto Sans KR",system-ui,sans-serif;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px}
+.mono,.seq{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace}
+header{padding:48px 0 24px}
+h1{font-size:clamp(28px,5vw,44px);line-height:1.25;margin:0 0 12px;letter-spacing:-.02em}
+header p{margin:0;color:var(--muted);max-width:56ch}
+h2{font-size:22px;margin:0 0 6px}
+section{padding:28px 0}
+.sub{color:var(--muted);margin:0 0 16px;font-size:15px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px}
+textarea,input[type=text],input[type=number],select{
+  width:100%;font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);
+  border-radius:6px;padding:10px 12px}
+textarea{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:15px;resize:vertical;min-height:72px;letter-spacing:.05em}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+label{display:block;font-size:14px;font-weight:500;margin:0 0 4px}
+.hint{font-size:13px;color:var(--muted);margin-top:6px}
+
+/* Central dogma */
+.dogma{display:flex;gap:12px;margin-top:16px}
+.dogma .lab{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);padding-top:2px;text-align:right;flex:none;width:52px}
+.dogma .lab span{height:32px;line-height:32px}
+.strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px;flex:1}
+.cd{display:flex;flex-direction:column;gap:6px;align-items:center;flex:none}
+.cd>div{height:32px;line-height:32px;font-size:18px;font-weight:700;letter-spacing:.12em}
+.cd .aa{display:block;min-width:36px;text-align:center;border-radius:6px;background:var(--ink);color:var(--paper);font-size:16px;letter-spacing:0}
+.cd .aa.stop{background:var(--T);color:#fff}
+.cd .aa.part{background:var(--line);color:var(--muted)}
+.bA{color:var(--A)}.bT,.bU{color:var(--T)}.bG{color:var(--G)}.bC{color:var(--C)}
+i{font-style:normal}
+.legend{display:flex;gap:14px;font-size:13px;margin-top:8px;flex-wrap:wrap}
+.legend i{font-family:"JetBrains Mono",monospace;font-weight:700}
+.caption{margin-top:10px;font-size:14px;color:var(--muted)}
+
+/* Tabs */
+[role=tablist]{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px;overflow-x:auto}
+[role=tab]{font:inherit;font-weight:500;color:var(--muted);background:none;border:0;border-bottom:3px solid transparent;
+  padding:10px 14px;cursor:pointer;white-space:nowrap}
+[role=tab][aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+[hidden]{display:none!important}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.out{margin-top:16px;display:grid;gap:10px}
+.row{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:10px}
+.row b{flex:none;min-width:92px;font-size:14px;color:var(--muted);font-weight:500}
+.row .v{word-break:break-all;flex:1;min-width:0}
+.big{font-size:26px;font-weight:700;color:var(--accent)}
+button.act{font:inherit;font-weight:500;background:var(--accent);color:#fff;border:0;border-radius:6px;padding:8px 14px;cursor:pointer;margin-top:12px}
+.err{color:var(--T);font-size:14px}
+footer{padding:32px 0 48px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);margin-top:24px}
+@media (prefers-reduced-motion:no-preference){.cd{animation:in .25s ease-out both}@keyframes in{from{opacity:0;transform:translateY(4px)}}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>바이오랩 노트</h1>
+    <p>DNA를 입력하면 단백질까지 한눈에. 서열 분석과 실험 계산도 브라우저에서 바로 해보세요.</p>
+  </header>
+
+  <!-- 교육: 센트럴 도그마 -->
+  <section aria-labelledby="h-dogma">
+    <h2 id="h-dogma">센트럴 도그마 시각화</h2>
+    <p class="sub">DNA 서열을 바꿔 보세요. 전사(DNA→mRNA)와 번역(mRNA→아미노산)이 코돈 단위로 나뉘어 보입니다.</p>
+    <div class="panel">
+      <label for="dogmaIn">DNA 서열 (A, T, G, C – 최대 60염기)</label>
+      <textarea id="dogmaIn" rows="2" spellcheck="false">ATGGCCATTGTAATGGGCCGCTGA</textarea>
+      <div class="dogma" aria-live="polite">
+        <div class="lab"><span>DNA</span><span>mRNA</span><span>단백질</span></div>
+        <div class="strip" id="dogmaOut"></div>
+      </div>
+      <div class="legend">
+        <span><i class="bA">A</i> 아데닌</span><span><i class="bT">T/U</i> 티민/우라실</span>
+        <span><i class="bG">G</i> 구아닌</span><span><i class="bC">C</i> 사이토신</span>
+      </div>
+      <p class="caption" id="dogmaCap"></p>
+    </div>
+  </section>
+
+  <!-- 도구 -->
+  <section aria-labelledby="h-tools">
+    <h2 id="h-tools">실험 도구</h2>
+    <p class="sub">입력값은 서버로 전송되지 않고 브라우저 안에서만 계산됩니다.</p>
+    <div class="panel">
+      <div role="tablist" aria-label="도구 선택">
+        <button role="tab" id="t1" aria-controls="p1" aria-selected="true">서열 분석</button>
+        <button role="tab" id="t2" aria-controls="p2" aria-selected="false">희석 계산기</button>
+        <button role="tab" id="t3" aria-controls="p3" aria-selected="false">DNA 몰농도 변환</button>
+      </div>
+
+      <div role="tabpanel" id="p1" aria-labelledby="t1">
+        <label for="seqIn">DNA 서열 (5’→3’)</label>
+        <textarea id="seqIn" rows="4" spellcheck="false">ATGGAATTCGCCATTGTAATGGGCCGCTGAGGATCCAAGCTTCTCGAGTAA</textarea>
+        <div class="out" id="seqOut" aria-live="polite"></div>
+      </div>
+
+      <div role="tabpanel" id="p2" aria-labelledby="t2" hidden>
+        <p class="sub">C₁V₁ = C₂V₂ — 원액에서 얼마나 덜어 쓸지 계산합니다. 농도는 같은 단위로 입력하세요.</p>
+        <div class="grid">
+          <div><label for="c1">원액 농도 (C₁)</label><input type="number" id="c1" value="10" min="0" step="any"></div>
+          <div><label for="c2">원하는 농도 (C₂)</label><input type="number" id="c2" value="0.5" min="0" step="any"></div>
+          <div><label for="v2">최종 부피 (µL)</label><input type="number" id="v2" value="1000" min="0" step="any"></div>
+        </div>
+        <div class="out" id="dilOut" aria-live="polite"></div>
+      </div>
+
+      <div role="tabpanel" id="p3" aria-labelledby="t3" hidden>
+        <p class="sub">이중가닥 DNA의 질량(ng)과 길이(bp)로 pmol, 분자 수를 계산합니다. (평균 660 g/mol per bp)</p>
+        <div class="grid">
+          <div><label for="ng">DNA 양 (ng)</label><input type="number" id="ng" value="100" min="0" step="any"></div>
+          <div><label for="bp">길이 (bp)</label><input type="number" id="bp" value="5000" min="1" step="any"></div>
+        </div>
+        <div class="out" id="molOut" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>바이오랩 노트 · 학습·참고용 도구입니다. 실제 실험에서는 반드시 프로토콜과 시약 정보를 함께 확인하세요.</footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const BASES = "TCAG";
+const AA = "FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG";
+const COMP = {A:"T",T:"A",G:"C",C:"G"};
+const clean = s => s.toUpperCase().replace(/[^ACGT]/g, "");
+const col = s => [...s].map(b => `<i class="b${b}">${b}</i>`).join("");
+const codon = c => {
+  const i = [...c].map(x => BASES.indexOf(x));
+  return i.includes(-1) ? "?" : AA[16*i[0] + 4*i[1] + i[2]];
+};
+const revcomp = s => [...s].reverse().map(b => COMP[b]).join("");
+const gcOf = s => s.length ? (([...s].filter(b => b==="G"||b==="C").length) / s.length * 100) : 0;
+const fmt = (n, d=2) => Number.isFinite(n) ? Number(n.toPrecision(6)).toLocaleString("ko-KR", {maximumFractionDigits:d}) : "–";
+
+/* 센트럴 도그마 */
+function renderDogma(){
+  const s = clean($("dogmaIn").value).slice(0, 60);
+  const out = $("dogmaOut");
+  if(!s){ out.innerHTML = '<p class="err">A, T, G, C로 이루어진 서열을 입력하세요.</p>'; $("dogmaCap").textContent=""; return; }
+  const parts = s.match(/.{1,3}/g);
+  let protein = "";
+  out.innerHTML = parts.map(c => {
+    const full = c.length === 3;
+    const aa = full ? codon(c) : "";
+    if(full && aa !== "*") protein += aa;
+    const cls = !full ? "part" : aa === "*" ? "stop" : "";
+    const label = !full ? "·" : aa === "*" ? "정지" : aa;
+    return `<div class="cd"><div class="seq">${col(c)}</div><div class="seq">${col(c.replace(/T/g,"U"))}</div><b class="aa ${cls}">${label}</b></div>`;
+  }).join("");
+  const stopAt = parts.findIndex(c => c.length===3 && codon(c)==="*");
+  $("dogmaCap").textContent = `${s.length}염기 → ${parts.filter(c=>c.length===3).length}코돈. ` +
+    (protein ? `아미노산 서열: ${protein}` : "아미노산이 없습니다.") +
+    (stopAt >= 0 ? ` (${stopAt+1}번째 코돈에서 번역 종료)` : "");
+}
+
+/* 서열 분석 */
+const ENZ = {EcoRI:"GAATTC", BamHI:"GGATCC", HindIII:"AAGCTT", XhoI:"CTCGAG", NdeI:"CATATG", NotI:"GCGGCCGC"};
+function findOrf(s){
+  let best = null;
+  for(let f=0; f<3; f++){
+    for(let i=f; i+3<=s.length; i+=3){
+      if(s.substr(i,3) !== "ATG") continue;
+      let p = "", j = i, stopped = false;
+      for(; j+3<=s.length; j+=3){
+        const a = codon(s.substr(j,3));
+        if(a === "*"){ stopped = true; break; }
+        p += a;
+      }
+      if(stopped && (!best || p.length > best.p.length)) best = {f:f+1, start:i+1, end:j+3, p};
+      i = j; // 같은 ORF 안의 ATG는 건너뜀
+    }
+  }
+  return best;
+}
+function renderSeq(){
+  const s = clean($("seqIn").value);
+  const o = $("seqOut");
+  if(!s){ o.innerHTML = '<p class="err">A, T, G, C로 이루어진 서열을 입력하세요.</p>'; return; }
+  const gc = gcOf(s);
+  const n = s.length;
+  const nGC = [...s].filter(b=>b==="G"||b==="C").length;
+  const tm = n < 14 ? 2*(n-nGC) + 4*nGC : 64.9 + 41*(nGC-16.4)/n;
+  const rc = revcomp(s);
+  const orf = findOrf(s);
+  const sites = Object.entries(ENZ).map(([name, site]) => {
+    const pos = []; let k = s.indexOf(site);
+    while(k >= 0){ pos.push(k+1); k = s.indexOf(site, k+1); }
+    return pos.length ? `${name} (${site}): ${pos.join(", ")}번째` : null;
+  }).filter(Boolean);
+  o.innerHTML = `
+    <div class="row"><b>길이</b><span class="v big">${n} nt</span></div>
+    <div class="row"><b>GC 함량</b><span class="v">${gc.toFixed(1)} %</span></div>
+    <div class="row"><b>Tm (추정)</b><span class="v">${tm.toFixed(1)} °C <span class="hint">${n<14?"Wallace 규칙":"기본 공식, 염 농도 미보정"}</span></span></div>
+    <div class="row"><b>상보 가닥</b><span class="v seq">${col([...s].map(b=>COMP[b]).join(""))}</span></div>
+    <div class="row"><b>역상보 가닥</b><span class="v seq">${col(rc)}</span></div>
+    <div class="row"><b>mRNA</b><span class="v seq">${col(s.replace(/T/g,"U"))}</span></div>
+    <div class="row"><b>가장 긴 ORF</b><span class="v">${orf ? `프레임 ${orf.f}, ${orf.start}–${orf.end}번째 염기, ${orf.p.length} aa<br><span class="seq">${orf.p}</span>` : "ATG로 시작해 정지 코돈으로 끝나는 ORF가 없습니다."}</span></div>
+    <div class="row"><b>제한효소</b><span class="v">${sites.length ? sites.join("<br>") : "검색한 6종의 절단 부위가 없습니다."}</span></div>`;
+}
+
+/* 희석 */
+function renderDil(){
+  const c1 = +$("c1").value, c2 = +$("c2").value, v2 = +$("v2").value, o = $("dilOut");
+  if(!(c1>0) || !(c2>0) || !(v2>0)){ o.innerHTML = '<p class="err">세 값 모두 0보다 큰 숫자를 입력하세요.</p>'; return; }
+  if(c2 > c1){ o.innerHTML = '<p class="err">원하는 농도(C₂)가 원액 농도(C₁)보다 높으면 희석할 수 없습니다.</p>'; return; }
+  const v1 = c2 * v2 / c1;
+  o.innerHTML = `
+    <div class="row"><b>원액 사용량</b><span class="v big">${fmt(v1)} µL</span></div>
+    <div class="row"><b>희석액(버퍼/물)</b><span class="v">${fmt(v2 - v1)} µL</span></div>
+    <div class="row"><b>희석 배수</b><span class="v">${fmt(c1/c2)} 배</span></div>`;
+}
+
+/* 몰농도 변환 */
+function renderMol(){
+  const ng = +$("ng").value, bp = +$("bp").value, o = $("molOut");
+  if(!(ng>0) || !(bp>0)){ o.innerHTML = '<p class="err">DNA 양과 길이는 0보다 큰 숫자를 입력하세요.</p>'; return; }
+  const pmol = ng * 1000 / (660 * bp);
+  const molecules = pmol * 1e-12 * 6.02214076e23;
+  o.innerHTML = `
+    <div class="row"><b>몰 수</b><span class="v big">${fmt(pmol, 4)} pmol</span></div>
+    <div class="row"><b>분자 수</b><span class="v">${molecules.toExponential(3)} 개</span></div>
+    <div class="row"><b>분자량</b><span class="v">${fmt(660*bp/1000, 1)} kDa</span></div>`;
+}
+
+/* 탭 */
+const tabs = [...document.querySelectorAll("[role=tab]")];
+tabs.forEach((t, idx) => {
+  t.addEventListener("click", () => selectTab(t));
+  t.addEventListener("keydown", e => {
+    if(e.key === "ArrowRight" || e.key === "ArrowLeft"){
+      const next = tabs[(idx + (e.key==="ArrowRight"?1:-1) + tabs.length) % tabs.length];
+      selectTab(next); next.focus();
+    }
+  });
+});
+function selectTab(t){
+  tabs.forEach(x => {
+    const on = x === t;
+    x.setAttribute("aria-selected", on);
+    $(x.getAttribute("aria-controls")).hidden = !on;
+  });
+}
+
+$("dogmaIn").addEventListener("input", renderDogma);
+$("seqIn").addEventListener("input", renderSeq);
+["c1","c2","v2"].forEach(id => $(id).addEventListener("input", renderDil));
+["ng","bp"].forEach(id => $(id).addEventListener("input", renderMol));
+renderDogma(); renderSeq(); renderDil(); renderMol();
+</script>
+</body>
+</html>
